@@ -1,5 +1,5 @@
 # Stage 1: Build the React Frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 # Install dependencies and build
@@ -9,7 +9,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build the FastAPI Backend and serve everything
-FROM python:3.11-slim
+FROM python:3.12-slim
 WORKDIR /app/backend
 
 # Set environment variables
