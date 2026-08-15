@@ -253,7 +253,7 @@ LeadSync_Agent/
 
 Developed with ❤️ by **Anirudh Chhabra**  
 - **GitHub**: [@AnirudhChhabra54](https://github.com/AnirudhChhabra54)  
-- **LinkedIn**: [Anirudh Chhabra](https://linkedin.com/in/anirudhchhabra54)
+- **LinkedIn**: [Anirudh Chhabra](https://www.linkedin.com/in/anirudhchhabra02)
 
 ---
 
