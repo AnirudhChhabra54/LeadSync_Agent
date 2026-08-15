@@ -82,21 +82,21 @@ def route_by_input_type(state: AgentState) -> str:
         return "handle_text"
 
 
+def route_after_dedup(state: AgentState) -> str:
+    """Route based on whether a duplicate was found during card processing."""
+    if state.get("is_duplicate"):
+        return "handle_duplicate"
+    else:
+        return "enrich_company"
+
+
 def route_after_confirmation(state: AgentState) -> str:
     """Route based on user's confirmation decision."""
     status = state.get("confirmation_status", "")
     if status == "approved":
-        return "check_duplicate"
+        return "write_to_sheet"
     else:
         return END
-
-
-def route_after_dedup(state: AgentState) -> str:
-    """Route based on whether a duplicate was found."""
-    if state.get("is_duplicate"):
-        return "handle_duplicate"
-    else:
-        return "write_to_sheet"
 
 
 def build_graph() -> StateGraph:
@@ -116,40 +116,39 @@ def build_graph() -> StateGraph:
     extract  process_voice  handle_text
       │      │              │
       ▼      │              ▼
-    enrich   │             END
+    dedup    │             END
       │      │
-      ▼      ▼
-    confirm  END
-    (INTERRUPT)
-      │
-    ┌─┴─┐
+    ┌─┴─┐    │
+    │   │    ▼
+  dup unique END
     │   │
-  approved rejected
-    │      │
-    ▼      ▼
-  dedup   END
-    │
-  ┌─┴─┐
-  │   │
-unique dup
-  │    │
-  ▼    ▼
-write  handle_dup
-  │    │
-  ▼    ▼
-whatsapp END
-  │
-  ▼
- END
+    │   ▼
+    │ enrich
+    │   │
+    │   ▼
+    │ confirm (INTERRUPT)
+    │   │
+    │ ┌─┴─┐
+    │ │   │
+    │app  rej
+    │ │   │
+    │ ▼   ▼
+    │write END
+    │ │
+    │ ▼
+    │whatsapp
+    │ │
+    ▼ ▼
+    END
     """
     builder = StateGraph(AgentState)
 
     # ── Add nodes ────────────────────────────────────────────────────
     builder.add_node("classify_input", classify_input)
     builder.add_node("extract_card_data", extract_card_data)
+    builder.add_node("check_duplicate", check_duplicate)
     builder.add_node("enrich_company", enrich_company)
     builder.add_node("confirm_with_user", confirm_with_user)
-    builder.add_node("check_duplicate", check_duplicate)
     builder.add_node("write_to_sheet", write_to_sheet)
     builder.add_node("send_whatsapp", send_whatsapp)
     builder.add_node("handle_duplicate", handle_duplicate)
@@ -172,31 +171,32 @@ whatsapp END
         },
     )
 
-    # Image path: extract → enrich → confirm (INTERRUPT)
-    builder.add_edge("extract_card_data", "enrich_company")
-    builder.add_edge("enrich_company", "confirm_with_user")
+    # Image path: extract → dedup check
+    builder.add_edge("extract_card_data", "check_duplicate")
 
-    # After confirmation: approved → dedup, rejected → END
-    builder.add_conditional_edges(
-        "confirm_with_user",
-        route_after_confirmation,
-        {
-            "check_duplicate": "check_duplicate",
-            END: END,
-        },
-    )
-
-    # After dedup: unique → write, duplicate → handle_duplicate
+    # After dedup: duplicate → handle_duplicate (END), unique → enrich → confirm (INTERRUPT)
     builder.add_conditional_edges(
         "check_duplicate",
         route_after_dedup,
         {
-            "write_to_sheet": "write_to_sheet",
             "handle_duplicate": "handle_duplicate",
+            "enrich_company": "enrich_company",
         },
     )
 
-    # After write: always send WhatsApp notification
+    builder.add_edge("enrich_company", "confirm_with_user")
+
+    # After confirmation: approved → write_to_sheet, rejected → END
+    builder.add_conditional_edges(
+        "confirm_with_user",
+        route_after_confirmation,
+        {
+            "write_to_sheet": "write_to_sheet",
+            END: END,
+        },
+    )
+
+    # After write: send WhatsApp notification
     builder.add_edge("write_to_sheet", "send_whatsapp")
 
     # Terminal edges

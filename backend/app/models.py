@@ -108,3 +108,13 @@ class SessionCreateResponse(BaseModel):
     session_id: str
     title: str
     created_at: datetime
+
+
+class SessionMessagesResponse(BaseModel):
+    """Response containing messages and status for a session."""
+    session_id: str
+    status: ChatStatus = ChatStatus.COMPLETE
+    messages: list[ChatMessage] = []
+    extracted_data: Optional[ExtractedContact] = None
+    has_pending_contact: bool = False
+

@@ -31,6 +31,7 @@ def extract_card_data(state: AgentState) -> dict:
     if contact is None:
         return {
             "error": "Failed to extract contact data from the image",
+            "image_data": None,
             "messages": [{"role": "assistant", "content": "❌ I couldn't read the visiting card. Please try uploading a clearer image."}],
         }
 
@@ -38,6 +39,7 @@ def extract_card_data(state: AgentState) -> dict:
 
     return {
         "extracted_contact": contact,
+        "image_data": None,  # Purge raw image data to keep MongoDB checkpoints small
         "messages": [{
             "role": "assistant",
             "content": f"📇 Extracted contact from the card:\n\n"

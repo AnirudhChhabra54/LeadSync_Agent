@@ -5,7 +5,29 @@ Audio service — upload to Cloudinary and transcribe/summarize with Gemini.
 import logging
 import tempfile
 import os
+import socket
 from typing import Optional
+
+try:
+    import dns.resolver
+    _orig_getaddrinfo = socket.getaddrinfo
+
+    def _patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        try:
+            return _orig_getaddrinfo(host, port, family, type, proto, flags)
+        except socket.gaierror:
+            try:
+                r = dns.resolver.Resolver()
+                r.nameservers = ["8.8.8.8", "1.1.1.1", "8.8.4.4"]
+                answers = r.resolve(host, "A")
+                ip = answers[0].address
+                return _orig_getaddrinfo(ip, port, family, type, proto, flags)
+            except Exception:
+                raise socket.gaierror(8, f"nodename nor servname provided, or not known")
+
+    socket.getaddrinfo = _patched_getaddrinfo
+except Exception:
+    pass
 
 import cloudinary
 import cloudinary.uploader
@@ -42,7 +64,7 @@ def upload_audio_to_cloudinary(
 ) -> Optional[str]:
     """
     Upload an audio file to Cloudinary.
-    Cloudinary treats audio as resource_type='video'.
+    Uses resource_type='auto' to support all audio formats (webm, mp3, wav, etc.).
 
     Returns the secure URL of the uploaded file, or None on failure.
     """
@@ -53,6 +75,7 @@ def upload_audio_to_cloudinary(
         logger.info("[STUB] Cloudinary not configured — returning mock URL")
         return "https://res.cloudinary.com/demo/video/upload/sample_voice_note.mp3"
 
+    tmp_path = None
     try:
         # Write to temp file for upload
         suffix = os.path.splitext(filename)[1] or ".mp3"
@@ -62,12 +85,9 @@ def upload_audio_to_cloudinary(
 
         result = cloudinary.uploader.upload(
             tmp_path,
-            resource_type="video",
+            resource_type="auto",
             folder="leadsync_voice_notes",
         )
-
-        # Clean up temp file
-        os.unlink(tmp_path)
 
         secure_url = result.get("secure_url")
         logger.info(f"Audio uploaded to Cloudinary: {secure_url}")
@@ -76,6 +96,12 @@ def upload_audio_to_cloudinary(
     except Exception as e:
         logger.error(f"Cloudinary upload failed: {e}")
         return None
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 
 def transcribe_audio(
@@ -96,23 +122,33 @@ def transcribe_audio(
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[
-                types.Content(
-                    parts=[
-                        types.Part.from_text(
-                            text="Transcribe the following audio recording verbatim. Return only the transcription text, nothing else."
-                        ),
-                        types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
-                    ]
+        transcription = None
+        for model_name in ["gemini-2.5-flash", "gemini-flash-latest"]:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        types.Content(
+                            parts=[
+                                types.Part.from_text(
+                                    text="Transcribe the following audio recording verbatim. Return only the transcription text, nothing else."
+                                ),
+                                types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
+                            ]
+                        )
+                    ],
                 )
-            ],
-        )
+                if response and response.text:
+                    transcription = response.text.strip()
+                    break
+            except Exception as m_err:
+                logger.warning(f"Audio model {model_name} failed: {m_err}")
+                continue
 
-        transcription = response.text.strip()
-        logger.info(f"Audio transcribed: {len(transcription)} characters")
-        return transcription
+        if transcription:
+            logger.info(f"Audio transcribed: {len(transcription)} characters")
+            return transcription
+        return None
 
     except Exception as e:
         logger.error(f"Audio transcription failed: {e}")
@@ -134,14 +170,21 @@ def summarize_transcription(transcription: str) -> str:
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=f"Summarize this voice note transcription in 1-2 concise sentences, focusing on key action items and decisions:\n\n{transcription}",
-        )
+        for model_name in ["gemini-2.5-flash", "gemini-flash-latest"]:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=f"Summarize this voice note transcription in 1-2 concise sentences, focusing on key action items and decisions:\n\n{transcription}",
+                )
+                if response and response.text:
+                    summary = response.text.strip()
+                    logger.info(f"Transcription summarized: {summary[:80]}...")
+                    return summary
+            except Exception as m_err:
+                logger.warning(f"Summary model {model_name} failed: {m_err}")
+                continue
 
-        summary = response.text.strip()
-        logger.info(f"Transcription summarized: {summary[:80]}...")
-        return summary
+        return transcription[:200]
 
     except Exception as e:
         logger.error(f"Summarization failed: {e}")

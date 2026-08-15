@@ -8,7 +8,18 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ConnectionFailure, PyMongoError
+
+try:
+    import dns.resolver
+    # Fallback to public DNS if local resolver fails on SRV records
+    resolver = dns.resolver.get_default_resolver() if hasattr(dns.resolver, "get_default_resolver") else getattr(dns.resolver, "default_resolver", None)
+    if callable(resolver):
+        resolver = resolver()
+    if resolver and hasattr(resolver, "nameservers"):
+        resolver.nameservers = ["8.8.8.8", "1.1.1.1", "8.8.4.4"]
+except Exception:
+    pass
 
 from app.config import get_settings
 from app.models import SessionInfo
@@ -55,8 +66,8 @@ async def ping_mongo() -> bool:
         client = get_mongo_client()
         await client.admin.command("ping")
         return True
-    except ConnectionFailure:
-        logger.error("MongoDB ping failed")
+    except Exception as e:
+        logger.error(f"MongoDB ping failed: {e}")
         return False
 
 

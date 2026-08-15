@@ -19,6 +19,16 @@ export const api = {
     return handleResponse(res);
   },
 
+  async getSession(sessionId) {
+    const res = await fetch(`${API_BASE}/sessions/${sessionId}`);
+    return handleResponse(res);
+  },
+
+  async getSessionMessages(sessionId) {
+    const res = await fetch(`${API_BASE}/sessions/${sessionId}/messages`);
+    return handleResponse(res);
+  },
+
   async createSession() {
     const res = await fetch(`${API_BASE}/sessions`, { method: 'POST' });
     return handleResponse(res);

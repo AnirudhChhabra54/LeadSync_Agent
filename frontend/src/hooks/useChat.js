@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { api } from '../api/client';
 
 /**
@@ -10,6 +10,41 @@ export function useChat(sessionId) {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [error, setError] = useState(null);
+
+  // Load message history whenever active sessionId changes
+  useEffect(() => {
+    if (!sessionId) {
+      setMessages([]);
+      setAwaitingConfirmation(false);
+      setExtractedData(null);
+      setError(null);
+      return;
+    }
+
+    let isMounted = true;
+    setLoading(true);
+
+    api.getSessionMessages(sessionId)
+      .then((data) => {
+        if (!isMounted) return;
+        setMessages(data.messages || []);
+        setAwaitingConfirmation(data.status === 'awaiting_confirmation');
+        setExtractedData(data.extracted_data || null);
+        setError(null);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.warn(`Could not load history for session ${sessionId}:`, err);
+        setMessages([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sessionId]);
 
   const processResponse = useCallback((data) => {
     if (data.messages && data.messages.length > 0) {

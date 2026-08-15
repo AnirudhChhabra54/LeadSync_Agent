@@ -64,20 +64,23 @@ def enrich_company_info(
             designation=designation,
         )
 
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-        )
+        for model_name in ["gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash"]:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                result = response.text.strip()
+                if "." in result and len(result) < 500:
+                    logger.info(f"Enriched company info for '{company}': {result}")
+                    return result
+            except Exception as model_err:
+                logger.warning(f"Model {model_name} failed: {model_err}")
+                continue
 
-        result = response.text.strip()
-
-        # Basic validation — should look like a URL
-        if "." in result and len(result) < 500:
-            logger.info(f"Enriched company info for '{company}': {result}")
-            return result
-        else:
-            logger.warning(f"Enrichment result didn't look like a URL: {result[:100]}")
-            return ""
+        # Clean fallback guess
+        cleaned_company = "".join(c for c in company if c.isalnum()).lower()
+        return f"https://www.{cleaned_company}.com"
 
     except Exception as e:
         logger.error(f"Company enrichment failed: {e}")

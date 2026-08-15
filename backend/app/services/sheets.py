@@ -102,6 +102,20 @@ def find_duplicate(phone: str, email: str) -> Optional[dict]:
     return None
 
 
+def _format_cell_value(val: any) -> str:
+    """
+    Format value for Google Sheets to prevent formula parse errors.
+    If a string starts with '+' or '=', prepend a single quote (') so Sheets
+    treats it strictly as a plain text string instead of a mathematical formula.
+    """
+    if val is None:
+        return ""
+    s = str(val).strip()
+    if s.startswith("+") or s.startswith("="):
+        return f"'{s}"
+    return s
+
+
 def append_contact_row(
     name: str,
     phone: str,
@@ -128,12 +142,12 @@ def append_contact_row(
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     row = [
         timestamp,
-        name,
-        phone,
-        email,
-        company,
-        designation,
-        website_linkedin,
+        _format_cell_value(name),
+        _format_cell_value(phone),
+        _format_cell_value(email),
+        _format_cell_value(company),
+        _format_cell_value(designation),
+        _format_cell_value(website_linkedin),
         "",  # Audio URL (filled later)
         "",  # Voice Note Summary (filled later)
         session_id,
@@ -165,7 +179,7 @@ def update_row_voice_note(
 
     try:
         ws.update_cell(row_index, 8, audio_url)
-        ws.update_cell(row_index, 9, voice_summary)
+        ws.update_cell(row_index, 9, _format_cell_value(voice_summary))
         ws.update_cell(row_index, 11, status)
         logger.info(f"Updated row {row_index} with voice note data")
     except Exception as e:

@@ -15,23 +15,25 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-EXTRACTION_PROMPT = """You are an expert at reading visiting/business cards. 
+EXTRACTION_PROMPT = """You are an expert at reading visiting and business cards. 
 Analyze the provided image of a visiting card and extract the following fields as structured JSON:
 
 {
   "name": "Full name of the person",
   "phone": "Phone number (include country code if visible)",
-  "email": "Email address",
-  "company": "Company/organization name",
-  "designation": "Job title or designation"
+  "email": "Email address (e.g. user@example.com)",
+  "company": "Company or organization name (e.g. Google, Acme Inc)",
+  "designation": "Job title or designation (e.g. Senior Software Engineer, Founder, Director)"
 }
 
-Rules:
-- Extract ONLY what is clearly visible on the card
-- If a field is not present or not readable, use an empty string ""
-- For phone numbers, include all digits and any country code prefix
-- Do not infer or guess information that isn't on the card
-- Return ONLY valid JSON, no markdown formatting, no code blocks
+CRITICAL RULES:
+- "email" MUST be the email address (containing '@').
+- "company" MUST ONLY be the company, brand, or organization name. NEVER put an email address into the "company" field. If no separate company name is visible, use "".
+- "name" MUST be the person's name, not the company name.
+- If a field is not present or not readable, use an empty string "".
+- For phone numbers, include all digits and any country code prefix.
+- Do not infer or guess information that isn't on the card.
+- Return ONLY valid JSON, no markdown formatting, no code blocks.
 """
 
 
@@ -64,23 +66,32 @@ def extract_contact_from_image(
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
         image_bytes = base64.b64decode(image_b64)
 
-        response = client.models.generate_content(
-            model="gemini-flash-latest",
-            contents=[
-                types.Content(
-                    parts=[
-                        types.Part.from_text(text=EXTRACTION_PROMPT),
-                        types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                    ]
+        raw_text = None
+        for model_name in ["gemini-2.5-flash", "gemini-flash-latest"]:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        types.Content(
+                            parts=[
+                                types.Part.from_text(text=EXTRACTION_PROMPT),
+                                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                            ]
+                        )
+                    ],
                 )
-            ],
-        )
+                if response and response.text:
+                    raw_text = response.text.strip()
+                    break
+            except Exception as m_err:
+                logger.warning(f"Vision model {model_name} failed: {m_err}")
+                continue
 
-        # Parse the JSON response
-        raw_text = response.text.strip()
+        if not raw_text:
+            logger.error("All Gemini vision models failed or returned empty text")
+            return None
 
         # Handle markdown-wrapped JSON
         if raw_text.startswith("```"):
@@ -94,6 +105,23 @@ def extract_contact_from_image(
         for key in expected_keys:
             if key not in contact_data:
                 contact_data[key] = ""
+            elif isinstance(contact_data[key], str):
+                contact_data[key] = contact_data[key].strip()
+
+        # ── Post-Processing & Field Disambiguation ─────────────────────────
+        # Ensure email is not mistakenly populated into company
+        comp_val = contact_data.get("company", "")
+        email_val = contact_data.get("email", "")
+
+        if "@" in comp_val:
+            # If company contains '@', it is an email address
+            if not email_val:
+                contact_data["email"] = comp_val
+            contact_data["company"] = ""
+
+        # Clean up any mailto: prefix
+        if contact_data.get("email", "").lower().startswith("mailto:"):
+            contact_data["email"] = contact_data["email"][7:].strip()
 
         logger.info(f"Extracted contact: {contact_data.get('name', 'Unknown')}")
         return contact_data

@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     WHATSAPP_ACCESS_TOKEN: Optional[str] = None
     WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
     WHATSAPP_MANAGER_NUMBER: Optional[str] = None
+    WHATSAPP_TEMPLATE_NAME: Optional[str] = None
+    WHATSAPP_TEMPLATE_LANG: str = "en_US"
 
     # ── Cloudinary ───────────────────────────────────────────────────
     CLOUDINARY_CLOUD_NAME: Optional[str] = None

@@ -111,6 +111,7 @@ def process_voice_note(state: AgentState) -> dict:
         logger.warning(f"[voice] Could not clear pending contact in MongoDB: {e}")
 
     return {
+        "audio_data": None,  # Purge raw audio bytes to keep MongoDB checkpoints small
         "audio_url": audio_url,
         "voice_transcription": transcription,
         "voice_summary": summary,

@@ -1,90 +1,264 @@
-# LeadSync Agent 📇
+# 📇 LeadSync Agent — Intelligent Multimodal Lead Capture & CRM Sync
 
-LeadSync Agent is a production-ready, AI-powered conversational agent designed to seamlessly digitize physical visiting cards, manage sales contacts, and append voice notes directly into a Google Sheets CRM.
+<div align="center">
 
-Built with an asynchronous FastAPI backend and a modern React frontend, this project leverages LangGraph to orchestrate a highly reliable, interrupt-driven human-in-the-loop (HITL) workflow.
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_Orchestration-orange?style=for-the-badge)](https://langchain-ai.github.io/langgraph/)
+[![Gemini 2.5](https://img.shields.io/badge/Google_Gemini-2.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Cloudinary](https://img.shields.io/badge/Cloudinary-Audio_CDN-3448C5?style=for-the-badge&logo=cloudinary&logoColor=white)](https://cloudinary.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-## 🚀 Features
+**Turn physical visiting cards and spoken meeting notes into structured, enriched CRM records in seconds.**
 
-- **Multimodal AI Extraction:** Upload an image of a visiting card. The agent uses Google's `gemini-flash-latest` vision model to intelligently extract the Name, Phone, Email, Company, and Designation into structured JSON.
-- **Human-in-the-Loop Confirmation:** Before any data is permanently saved, the workflow pauses, allowing the user to review, edit, or reject the extracted contact details via the React UI.
-- **Intelligent Deduplication:** Automatically checks the connected Google Sheet for existing contacts using normalized phone numbers and emails to prevent CRM clutter.
-- **Background Company Enrichment:** Automatically infers the company's website or LinkedIn presence using LLM reasoning.
-- **Audio Voice Notes:** Once a contact is synced, users can upload an audio voice note detailing the context of the meeting. The agent transcribes the audio, summarizes it, uploads the raw file to Cloudinary, and links both the URL and summary to the specific row in Google Sheets.
-- **Session Management:** Robust session tracking using MongoDB ensures context is maintained across page reloads and multiple parallel conversations.
+[🎬 Watch Demo Video](#-demo-video) • [⚡ Key Features](#-key-features) • [🧠 Architecture](#-architecture--langgraph-workflow) • [🛠️ Getting Started](#-getting-started)
 
-## 🛠️ Architecture & Tech Stack
+</div>
+
+---
+
+## 🎯 The Problem
+
+Every conference, networking dinner, and sales meetup ends the exact same way: a pocket stuffed with physical visiting cards and a head full of quick meeting context.
+
+- **Cards Get Lost or Forgotten**: Physical cards sit on desks or in wallets until they are discarded.
+- **Context Decays in 24 Hours**: The verbal agreement, personal rapport, urgency level, or specific follow-up item discussed with the prospect vanishes from memory before anyone sits down to open a CRM.
+- **Manual Data Entry Friction**: Typing names, international phone numbers, email addresses, and designations into spreadsheets or CRMs is tedious and prone to typos.
+- **Duplicate Records & CRM Clutter**: Without immediate deduplication, sales teams end up with duplicate rows, conflicting notes, and fragmented history.
+
+---
+
+## 💡 The Impact of LeadSync Agent
+
+**LeadSync Agent** was built to eliminate this friction entirely. It serves as an autonomous, multimodal sales copilot right on your phone or laptop:
+
+1. **Snap & Extract**: Take a photo of any visiting card — Gemini Vision extracts Name, Phone, Email, Company, and Designation in structured JSON in under 2 seconds.
+2. **Human-in-the-Loop Verification**: An interactive HUD presents the parsed fields with visual confidence indicators, letting you edit or approve before anything touches your database.
+3. **Smart Deduplication & Enrichment**: Instantly validates whether the lead already exists in your Google Sheet CRM using normalized contact matching.
+4. **Voice Note Context Linking**: Right after the conversation, record a 30-second voice note. The agent uploads the recording to Cloudinary CDN, transcribes and extracts actionable bullet points with Gemini, and links both the summary and audio directly to the lead's row in Google Sheets.
+5. **Instant WhatsApp Dispatch**: Automatically triggers template-based WhatsApp follow-ups to keep the deal warm.
+
+> **Result**: Zero lost leads, 100% meeting context retained, and real-time CRM updates in under 30 seconds per contact.
+
+---
+
+## 📸 Visual Showcase & Interface
+
+### 🖥️ Working LeadSync Workspace
+![LeadSync Working Interface](media/WorkingLeadSync.png)
+
+### 📊 Lead Management Dashboard
+![LeadSync Dashboard Overview](media/LeadSyncDashboard.png)
+
+---
+
+## 🎬 Demo Video
+
+<div align="center">
+
+https://github.com/user-attachments/assets/media/Final_Leadsync.mp4
+
+> **Direct file path**: [`media/Final_Leadsync.mp4`](media/Final_Leadsync.mp4)
+
+</div>
+
+---
+
+## ⚡ Key Features
+
+- **👁️ Multimodal Card Extraction**: High-precision OCR and entity extraction powered by Google Gemini 2.5 Flash.
+- **🎙️ Real-time Audio Recorder & Soundwave HUD**: In-browser microphone capture with audio buffer waveform visualizer.
+- **☁️ Cloudinary CDN Integration**: Automatic cloud storage for audio notes with secure URL generation.
+- **📊 Real-time Google Sheets Sync**: Live two-way synchronization into your cloud spreadsheet with deduplication checks.
+- **💬 WhatsApp Business API Notifications**: Automated manager alerts and lead confirmations.
+- **🛡️ Human-in-the-Loop State Checkpointing**: LangGraph interrupt nodes guarantee user validation before database mutations.
+- **💾 Persistent MongoDB Session Store**: Full conversation and state persistence across page refreshes and devices.
+- **🎨 Glassmorphic Cyber HUD Aesthetic**: Futuristic cyberpunk-inspired user interface built with custom CSS tokens and micro-animations.
+
+---
+
+## 🧠 Architecture & LangGraph Workflow
+
+The core intelligence is powered by a cyclic **LangGraph StateGraph** that cleanly orchestrates perception, human intervention, and external tool execution:
+
+```
+                  ┌────────────────────────┐
+                  │   User Uploads Card    │
+                  └───────────┬────────────┘
+                              │
+                              ▼
+                  ┌────────────────────────┐
+                  │   extract_card_data    │  ◄── Gemini 2.5 Flash Vision
+                  └───────────┬────────────┘
+                              │
+                              ▼
+                  ┌────────────────────────┐
+                  │    enrich_company      │  ◄── LLM Company Discovery
+                  └───────────┬────────────┘
+                              │
+                              ▼
+                  ┌────────────────────────┐
+                  │   confirm_with_user    │  ◄── [HUMAN-IN-THE-LOOP INTERRUPT]
+                  └───────────┬────────────┘      (User edits/approves in UI)
+                              │
+                    User Confirmed?
+                   ┌──────────┴──────────┐
+                   │                     │
+                  Yes                    No ──► [Session Reset]
+                   │
+                   ▼
+         ┌───────────────────┐
+         │deduplicate_contact│ ◄── Scans Google Sheets for duplicate phone/email
+         └─────────┬─────────┘
+                   │
+                   ▼
+         ┌───────────────────┐
+         │  write_to_sheets  │ ◄── Inserts verified lead into Google Sheets
+         └─────────┬─────────┘
+                   │
+                   ▼
+         ┌───────────────────┐
+         │send_whatsapp_alert│ ◄── WhatsApp Cloud API Notification
+         └─────────┬─────────┘
+                   │
+                   ▼
+         ┌───────────────────┐
+         │process_voice_note │ ◄── Uploads to Cloudinary, Gemini Transcribes,
+         └───────────────────┘     Appends summary & audio link to Sheet row
+```
+
+---
+
+## 🛠️ Tech Stack
 
 ### Backend
-- **Framework:** FastAPI (Python 3.11+)
-- **Agent Orchestration:** LangChain & LangGraph (StateGraph, Checkpointing)
-- **AI/LLM:** Google Gemini API (`gemini-flash-latest` for Vision & Audio)
-- **Database:** MongoDB Atlas (for LangGraph state persistence and session tracking)
-- **CRM Integration:** Google Sheets API (`gspread`)
-- **Cloud Storage:** Cloudinary (Audio hosting)
+| Technology | Role |
+| :--- | :--- |
+| **FastAPI** | High-performance asynchronous Python API framework |
+| **LangGraph / LangChain** | Agentic state graph orchestration and interrupt checkpoints |
+| **Google Gemini 2.5 Flash** | Multimodal Vision (card OCR) and Audio (voice transcription & summarization) |
+| **MongoDB Atlas + Motor** | Asynchronous session persistence and chat history storage |
+| **Google Sheets API (`gspread`)** | Cloud spreadsheet CRM database |
+| **Cloudinary** | Audio asset hosting and global CDN delivery |
+| **WhatsApp Cloud API** | Enterprise WhatsApp messaging and automated follow-ups |
 
 ### Frontend
-- **Framework:** React.js (Vite)
-- **Styling:** Vanilla CSS with modern Glassmorphism aesthetics
-- **Icons:** React Icons (Lucide)
-- **Audio Processing:** `react-audio-voice-recorder`
+| Technology | Role |
+| :--- | :--- |
+| **React 18 + Vite** | Blazing-fast modern frontend build |
+| **Lucide Icons** | Clean, minimalist iconography |
+| **Vanilla CSS** | Tailored dark-mode glassmorphic theme with interactive HUD elements |
+| **MediaStream API** | Native in-browser voice note audio recording |
 
-## ⚙️ Local Development Setup
+---
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- A Google Cloud Project with the Google Sheets API enabled and a Service Account JSON.
-- MongoDB Atlas cluster URL.
-- Gemini API Key.
-- Cloudinary Account.
+## 🚀 Getting Started
 
-### Environment Variables
-Create a `.env` file in the root of the project:
+### 1. Clone the Repository
+```bash
+git clone https://github.com/AnirudhChhabra54/LeadSync_Agent.git
+cd LeadSync_Agent
+```
+
+### 2. Environment Configuration
+Create a `.env` file in the project root:
 
 ```env
-# MongoDB Atlas
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster...
+# ─── MongoDB Atlas ───────────────────────────────────────────
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/?appName=Cluster0
 
-# Google Sheets
-GOOGLE_SHEET_ID=your_google_sheet_id
-GOOGLE_SERVICE_ACCOUNT_JSON={"type": "service_account", ...}
+# ─── Google Sheets ───────────────────────────────────────────
+GOOGLE_SHEET_ID=your_google_sheet_id_here
+GOOGLE_SERVICE_ACCOUNT_JSON={"type": "service_account", "project_id": "...", "private_key": "...", ...}
 
-# Gemini AI
-GEMINI_API_KEY=your_gemini_api_key
+# ─── Google Gemini API ───────────────────────────────────────
+GEMINI_API_KEY=your_gemini_api_key_here
 
-# Cloudinary
+# ─── WhatsApp Business API ───────────────────────────────────
+WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_MANAGER_NUMBER=918755553796
+WHATSAPP_TEMPLATE_NAME=jaspers_market_order_confirmation_v1
+WHATSAPP_TEMPLATE_LANG=en_US
+
+# ─── Cloudinary (Audio Hosting) ──────────────────────────────
 CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
-### Starting the Backend
+### 3. Backend Setup
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # Or `venv\Scripts\activate` on Windows
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-### Starting the Frontend
+### 4. Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`.
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-## 🧠 LangGraph Workflow Design
-The backend agent operates on a cyclic `StateGraph` that transitions through distinct nodes:
-1. `extract_card_data`: Parses the incoming image via Gemini Vision.
-2. `enrich_company`: (Parallel) Derives company metadata.
-3. `confirm_with_user`: **Interrupt Node.** Yields control back to the frontend awaiting the user's manual approval of the extracted payload.
-4. `deduplicate_contact`: Checks the target Google Sheet for existing records.
-5. `write_to_sheets`: Appends the verified, unique contact.
-6. `process_voice_note`: (Conditional) If audio is received, transcodes to base64, fetches a summary, uploads to Cloudinary, and updates the specific row in Google Sheets.
+---
 
-## 📝 License
-This project is open-source and available under the MIT License.
+## 📁 Repository Structure
+
+```
+LeadSync_Agent/
+├── backend/
+│   ├── app/
+│   │   ├── agent/
+│   │   │   ├── nodes/          # LangGraph graph execution nodes (extract, confirm, dedup, voice, etc.)
+│   │   │   ├── graph.py        # LangGraph StateGraph compilation
+│   │   │   └── state.py        # State definitions
+│   │   ├── routes/             # FastAPI REST endpoints (chat, sessions)
+│   │   ├── services/           # External services (Gemini, Sheets, MongoDB, Cloudinary, WhatsApp)
+│   │   ├── config.py           # Pydantic settings
+│   │   └── main.py             # App entry point
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/         # React UI components (HUD, ChatWindow, InputBar, Sidebar)
+│   │   ├── hooks/              # Custom React hooks (useChat)
+│   │   ├── api/                # API client
+│   │   ├── App.jsx             # Main Application layout
+│   │   └── index.css           # Glassmorphism & Cyber HUD styling
+│   ├── package.json
+│   └── vite.config.js
+├── media/
+│   ├── Final_Leadsync.mp4      # Full walkthrough & demo video
+│   ├── LeadSyncDashboard.png   # Dashboard screenshot
+│   └── WorkingLeadSync.png     # Live interaction interface screenshot
+└── README.md
+```
+
+---
+
+## 🌟 Future Roadmap
+
+- [ ] **Native Mobile App (React Native / Flutter)**: Instant card scanning on the conference floor.
+- [ ] **Multi-CRM Connectors**: Direct sync with HubSpot, Salesforce, and Zoho CRM.
+- [ ] **AI Meeting Follow-up Drafter**: Auto-generate personalized email drafts based on the voice note summary.
+- [ ] **Multi-lingual Voice Notes**: Live real-time translation for global international trade expos.
+
+---
+
+## 👤 Author & Acknowledgements
+
+Developed with ❤️ by **Anirudh Chhabra**  
+- **GitHub**: [@AnirudhChhabra54](https://github.com/AnirudhChhabra54)  
+- **LinkedIn**: [Anirudh Chhabra](https://linkedin.com/in/anirudhchhabra54)
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
