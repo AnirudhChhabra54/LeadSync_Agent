@@ -178,7 +178,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 # ─── WhatsApp Business API ───────────────────────────────────
 WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
 WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
-WHATSAPP_MANAGER_NUMBER=918755553796
+WHATSAPP_MANAGER_NUMBER=919876543210  # e.g., 919876543210 (country code + number, no + prefix)
 WHATSAPP_TEMPLATE_NAME=jaspers_market_order_confirmation_v1
 WHATSAPP_TEMPLATE_LANG=en_US
 
@@ -244,8 +244,6 @@ LeadSync_Agent/
 
 ## 🌟 Future Roadmap
 
-- [ ] **Native Mobile App (React Native / Flutter)**: Instant card scanning on the conference floor.
-- [ ] **Multi-CRM Connectors**: Direct sync with HubSpot, Salesforce, and Zoho CRM.
 - [ ] **AI Meeting Follow-up Drafter**: Auto-generate personalized email drafts based on the voice note summary.
 - [ ] **Multi-lingual Voice Notes**: Live real-time translation for global international trade expos.
 
